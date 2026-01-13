@@ -7,7 +7,7 @@
 set -e
 
 # ===== CONFIG =====
-GITHUB_REPO="https://github.com/gunx/scriptx"
+GITHUB_REPO="https://github.com/LiLGun-X/Lelar-X"
 INSTALL_DIR="/bin"
 MODUX_DIR="/bin/modux"
 TMP_DIR="/tmp/modux_install"
