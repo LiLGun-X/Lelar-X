@@ -1,0 +1,48 @@
+#!/bin/bash
+
+REPO="https://github.com/gunx/scriptx.git"
+SUBDIR="modux"
+INSTALL_DIR="/bin/modux"
+
+# ต้องเป็น root
+if [ "$EUID" -ne 0 ]; then
+  echo "❌ กรุณารันด้วย root"
+  exit 1
+fi
+
+echo "📥 Downloading from GitHub..."
+
+# เตรียม temp
+rm -rf /tmp/scriptx
+
+# ตรวจ git
+if ! command -v git >/dev/null 2>&1; then
+  echo "📦 Installing git..."
+  apt update && apt install -y git
+fi
+
+# clone repo
+git clone $REPO /tmp/scriptx || exit 1
+
+# ตรวจว่ามีโฟลเดอร์ modux จริงไหม
+if [ ! -d "/tmp/scriptx/$SUBDIR" ]; then
+  echo "❌ ไม่พบโฟลเดอร์ modux ใน repo"
+  exit 1
+fi
+
+echo "📦 Installing ModuX..."
+
+# สร้างโฟลเดอร์ปลายทาง
+mkdir -p $INSTALL_DIR
+
+# คัดลอกเฉพาะ modux
+cp -r /tmp/scriptx/$SUBDIR/* $INSTALL_DIR/
+
+# ให้สิทธิ์รัน
+chmod +x $INSTALL_DIR/*
+
+# สร้างคำสั่ง menux
+ln -sf $INSTALL_DIR/menux /bin/menux
+
+echo "✅ ติดตั้งสำเร็จ"
+echo "👉 พิมพ์ menux เพื่อใช้งาน"
