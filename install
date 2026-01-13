@@ -1,6 +1,6 @@
 #!/bin/bash
 
-REPO="https://github.com/gunx/scriptx.git"
+REPO="https://github.com/LiLGun-X/Lelar-X.git"
 SUBDIR="modux"
 INSTALL_DIR="/bin/modux"
 
