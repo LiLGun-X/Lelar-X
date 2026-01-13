@@ -1,40 +1,60 @@
 #!/bin/bash
+# ==================================
+# ModuX Installer
+# Author: gunx
+# ==================================
 
-REPO="https://github.com/LiLGun-X/Lelar-X.git"
-SUBDIR="modux"
-INSTALL_DIR="/bin/modux"
+set -e
 
-# ต้องเป็น root
+# ===== CONFIG =====
+GITHUB_REPO="https://github.com/gunx/scriptx"
+INSTALL_DIR="/bin"
+MODUX_DIR="/bin/modux"
+TMP_DIR="/tmp/modux_install"
+
+# ===== CHECK ROOT =====
 if [ "$EUID" -ne 0 ]; then
-  echo "❌ กรุณารันด้วย root"
+  echo "❌ กรุณารันด้วย root (sudo)"
   exit 1
 fi
 
-echo "📥 Downloading from GitHub..."
+echo "🚀 เริ่มติดตั้ง ModuX..."
 
-# เตรียม temp
-rm -rf /tmp/scriptx
+# ===== CLEAN TMP =====
+rm -rf "$TMP_DIR"
+mkdir -p "$TMP_DIR"
 
-# ตรวจ git
-if ! command -v git >/dev/null 2>&1; then
-  echo "📦 Installing git..."
-  apt update && apt install -y git
-fi
+# ===== CLONE REPO =====
+echo "📥 ดึงไฟล์จาก GitHub..."
+git clone "$GITHUB_REPO" "$TMP_DIR"
 
-# clone repo
-git clone $REPO /tmp/scriptx || exit 1
-
-# ตรวจว่ามีโฟลเดอร์ modux จริงไหม
-if [ ! -d "/tmp/scriptx/$SUBDIR" ]; then
+# ===== CHECK MODUX =====
+if [ ! -d "$TMP_DIR/modux" ]; then
   echo "❌ ไม่พบโฟลเดอร์ modux ใน repo"
   exit 1
 fi
 
-echo "📦 Installing ModuX..."
+# ===== INSTALL MODUX =====
+echo "📂 ติดตั้งไปที่ $MODUX_DIR"
+rm -rf "$MODUX_DIR"
+cp -r "$TMP_DIR/modux" "$MODUX_DIR"
 
-# สร้างโฟลเดอร์ปลายทาง
-mkdir -p $INSTALL_DIR
+# ===== PERMISSION =====
+echo "🔑 ตั้ง permission..."
+chmod -R 755 "$MODUX_DIR"
 
+# menux ต้อง executable
+chmod +x "$MODUX_DIR/menux"
+
+# ===== CREATE SYMLINK =====
+echo "🔗 สร้างคำสั่ง menux"
+ln -sf "$MODUX_DIR/menux" /bin/menux
+
+# ===== CLEAN =====
+rm -rf "$TMP_DIR"
+
+echo "✅ ติดตั้งสำเร็จ!"
+echo "👉 พิมพ์ menux เพื่อเริ่มใช้งาน"
 # คัดลอกเฉพาะ modux
 cp -r /tmp/scriptx/$SUBDIR/* $INSTALL_DIR/
 
