@@ -1,0 +1,81 @@
+#!/bin/bash
+# ==================================
+# ModuX Updater
+# Author: gunx
+# ==================================
+
+set -e
+
+# ===== CONFIG =====
+GITHUB_REPO="https://github.com/LiLGun-X/Lelar-X"
+MODUX_DIR="/bin/modux"
+TMP_DIR="/tmp/modux_update"
+
+# ===== CHECK ROOT =====
+if [ "$EUID" -ne 0 ]; then
+  echo "❌ กรุณารันด้วย root (sudo)"
+  exit 1
+fi
+
+# ===== FUN BAR =====
+fun_bar () {
+  (
+    $1 > /dev/null 2>&1
+    $2 > /dev/null 2>&1
+    touch /tmp/fim
+  ) &
+  tput civis
+  echo -ne "  \033[1;33mกำลังอัปเดต...\033[1;33m["
+  while true; do
+    for((i=0; i<18; i++)); do
+      echo -ne "\033[1;32m█"
+      sleep 0.1
+    done
+    [[ -f /tmp/fim ]] && rm /tmp/fim && break
+  done
+  echo -e "\033[1;33m]\033[1;32m OK\033[0m"
+  tput cnorm
+}
+
+echo "🔄 เริ่มอัปเดต ModuX..."
+
+# ===== CHECK EXIST =====
+if [ ! -d "$MODUX_DIR" ]; then
+  echo "❌ ไม่พบ ModuX (ยังไม่ติดตั้ง)"
+  exit 1
+fi
+
+# ===== CLEAN TMP =====
+rm -rf "$TMP_DIR"
+mkdir -p "$TMP_DIR"
+
+# ===== CLONE REPO =====
+echo "📥 ดึงไฟล์ใหม่จาก GitHub..."
+fun_bar \
+"git clone $GITHUB_REPO $TMP_DIR" \
+"sleep 1"
+
+# ===== CHECK MODUX =====
+if [ ! -d "$TMP_DIR/modux" ]; then
+  echo "❌ ไม่พบโฟลเดอร์ modux ใน repo"
+  exit 1
+fi
+
+# ===== SYNC FILES =====
+echo "📂 อัปเดตไฟล์..."
+fun_bar \
+"rsync -a --delete $TMP_DIR/modux/ $MODUX_DIR/" \
+"sleep 1"
+
+# ===== PERMISSION =====
+echo "🔑 ตั้ง permission..."
+fun_bar \
+"chmod -R 755 $MODUX_DIR" \
+"sleep 1"
+
+# ===== CLEAN =====
+rm -rf "$TMP_DIR"
+
+echo
+echo "✅ อัปเดตเสร็จเรียบร้อย!"
+echo "👉 พิมพ์ menux เพื่อใช้งานต่อ"
