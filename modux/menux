@@ -506,6 +506,9 @@ case "$x" in
    v | V)
    clear
    v2m
+   ;;v | V)
+   clear
+   v2m
    ;;
    20)
    clear
