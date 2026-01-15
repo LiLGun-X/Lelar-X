@@ -10,6 +10,7 @@ set -e
 GITHUB_REPO="https://github.com/LiLGun-X/Lelar-X"
 MODUX_DIR="/bin/modux"
 TMP_DIR="/tmp/modux_update"
+BIN_DIR="/bin"
 
 # ===== CHECK ROOT =====
 if [ "$EUID" -ne 0 ]; then
@@ -17,43 +18,15 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-# ===== FUN BAR =====
-fun_bar () {
-  (
-    $1 > /dev/null 2>&1
-    $2 > /dev/null 2>&1
-    touch /tmp/fim
-  ) &
-  tput civis
-  echo -ne "  \033[1;33mกำลังอัปเดต...\033[1;33m["
-  while true; do
-    for((i=0; i<18; i++)); do
-      echo -ne "\033[1;32m█"
-      sleep 0.1
-    done
-    [[ -f /tmp/fim ]] && rm /tmp/fim && break
-  done
-  echo -e "\033[1;33m]\033[1;32m OK\033[0m"
-  tput cnorm
-}
-
 echo "🔄 เริ่มอัปเดต ModuX..."
-
-# ===== CHECK EXIST =====
-if [ ! -d "$MODUX_DIR" ]; then
-  echo "❌ ไม่พบ ModuX (ยังไม่ติดตั้ง)"
-  exit 1
-fi
 
 # ===== CLEAN TMP =====
 rm -rf "$TMP_DIR"
 mkdir -p "$TMP_DIR"
 
 # ===== CLONE REPO =====
-echo "📥 ดึงไฟล์ใหม่จาก GitHub..."
-fun_bar \
-"git clone $GITHUB_REPO $TMP_DIR" \
-"sleep 1"
+echo "📥 ดึงไฟล์จาก GitHub..."
+git clone "$GITHUB_REPO" "$TMP_DIR"
 
 # ===== CHECK MODUX =====
 if [ ! -d "$TMP_DIR/modux" ]; then
@@ -61,21 +34,53 @@ if [ ! -d "$TMP_DIR/modux" ]; then
   exit 1
 fi
 
-# ===== SYNC FILES =====
-echo "📂 อัปเดตไฟล์..."
-fun_bar \
-"rsync -a --delete $TMP_DIR/modux/ $MODUX_DIR/" \
-"sleep 1"
+# ===== UPDATE FILES =====
+echo "📂 อัปเดตไฟล์ไปที่ $MODUX_DIR"
+rm -rf "$MODUX_DIR"
+cp -r "$TMP_DIR/modux" "$MODUX_DIR"
 
 # ===== PERMISSION =====
-echo "🔑 ตั้ง permission..."
-fun_bar \
-"chmod -R 755 $MODUX_DIR" \
-"sleep 1"
+echo "🔑 ตั้ง permission อัตโนมัติ..."
+find "$MODUX_DIR" -type d -exec chmod 755 {} \;
+find "$MODUX_DIR" -type f -exec chmod 755 {} \;
+
+# ===== CLEAN OLD COMMANDS =====
+echo "🧹 ล้าง command เก่าที่ชี้ไป modux..."
+for f in "$BIN_DIR"/*; do
+  [[ -L "$f" && "$(readlink "$f")" == "$MODUX_DIR"* ]] && rm -f "$f"
+done
+
+# ===== AUTO REGISTER COMMANDS =====
+echo "🔗 ลงทะเบียนคำสั่งอัตโนมัติ..."
+
+for item in "$MODUX_DIR"/*; do
+  name=$(basename "$item")
+
+  # ข้ามไฟล์ที่ไม่ควรเป็นคำสั่ง
+  [[ "$name" =~ \.(md|txt|conf|json)$ ]] && continue
+
+  # ===== FILE =====
+  if [[ -f "$item" ]]; then
+    chmod +x "$item"
+    ln -sf "$item" "$BIN_DIR/$name"
+    echo "✔ command: $name"
+
+  # ===== FOLDER (ต้องมี main) =====
+  elif [[ -d "$item" && -f "$item/main" ]]; then
+    chmod +x "$item/main"
+
+    cat > "$BIN_DIR/$name" <<EOF
+#!/bin/bash
+exec "$item/main" "\$@"
+EOF
+
+    chmod +x "$BIN_DIR/$name"
+    echo "✔ menu: $name"
+  fi
+done
 
 # ===== CLEAN =====
 rm -rf "$TMP_DIR"
 
-echo
-echo "✅ อัปเดตเสร็จเรียบร้อย!"
-echo "👉 พิมพ์ menux เพื่อใช้งานต่อ"
+echo "✅ อัปเดต ModuX สำเร็จ!"
+echo "👉 คำสั่งใหม่ใช้งานได้ทันที"
