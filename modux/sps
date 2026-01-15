@@ -1,0 +1,123 @@
+#!/bin/bash
+# ==========================================
+# BadVPN + VPS Network MAX Performance
+# Author: gunx
+# Focus : Gaming / Low Latency
+# ==========================================
+
+BADVPN_PORT=7300
+
+echo "▶ Updating system..."
+apt update -y
+
+echo "▶ Installing required packages..."
+apt install -y iptables screen ethtool curl wget
+
+echo "▶ Installing BadVPN..."
+if ! command -v badvpn-udpgw >/dev/null 2>&1; then
+  wget -q https://raw.githubusercontent.com/ambrop72/badvpn/master/build/badvpn-udpgw
+  chmod +x badvpn-udpgw
+  mv badvpn-udpgw /usr/bin/
+fi
+
+echo "▶ Tuning kernel & network..."
+cat > /etc/sysctl.d/99-vps-network-max.conf <<EOF
+# =========================
+# CORE NETWORK BUFFER
+# =========================
+net.core.netdev_max_backlog=50000
+net.core.somaxconn=65535
+net.core.rmem_default=26214400
+net.core.wmem_default=26214400
+net.core.rmem_max=33554432
+net.core.wmem_max=33554432
+
+# =========================
+# UDP OPTIMIZATION
+# =========================
+net.ipv4.udp_rmem_min=16384
+net.ipv4.udp_wmem_min=16384
+
+# =========================
+# TCP OPTIMIZATION
+# =========================
+net.ipv4.tcp_fastopen=3
+net.ipv4.tcp_low_latency=1
+net.ipv4.tcp_mtu_probing=1
+net.ipv4.tcp_sack=1
+net.ipv4.tcp_timestamps=0
+net.ipv4.tcp_fin_timeout=15
+net.ipv4.tcp_keepalive_time=600
+net.ipv4.tcp_keepalive_intvl=60
+net.ipv4.tcp_keepalive_probes=5
+
+# =========================
+# TCP MEMORY
+# =========================
+net.ipv4.tcp_rmem=4096 87380 33554432
+net.ipv4.tcp_wmem=4096 65536 33554432
+
+# =========================
+# BBR
+# =========================
+net.core.default_qdisc=fq
+net.ipv4.tcp_congestion_control=bbr
+
+# =========================
+# FILE LIMIT
+# =========================
+fs.file-max=2097152
+EOF
+
+sysctl --system > /dev/null
+
+echo "▶ Increasing system limits..."
+cat > /etc/security/limits.d/99-max.conf <<EOF
+* soft nofile 1048576
+* hard nofile 1048576
+root soft nofile 1048576
+root hard nofile 1048576
+EOF
+
+echo "▶ Detecting network interface..."
+IFACE=$(ip route get 8.8.8.8 | awk '{print $5; exit}')
+
+echo "▶ Optimizing NIC: $IFACE"
+ethtool -K $IFACE tso off gso off gro off 2>/dev/null
+ethtool -G $IFACE rx 4096 tx 4096 2>/dev/null
+
+echo "▶ Opening firewall ports..."
+iptables -I INPUT -p udp --dport $BADVPN_PORT -j ACCEPT
+iptables -I INPUT -p tcp --dport $BADVPN_PORT -j ACCEPT
+
+echo "▶ Creating BadVPN service..."
+cat > /etc/systemd/system/badvpn.service <<EOF
+[Unit]
+Description=BadVPN UDPGW MAX PERF
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/badvpn-udpgw \
+--listen-addr 0.0.0.0:$BADVPN_PORT \
+--max-clients 300 \
+--client-idle-timeout 60 \
+--loglevel none
+Restart=always
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reexec
+systemctl daemon-reload
+systemctl enable badvpn
+systemctl restart badvpn
+
+echo "========================================"
+echo " ✅ BadVPN + VPS Network MAX Enabled"
+echo " ▶ Port : $BADVPN_PORT"
+echo " ▶ TCP  : BBR"
+echo " ▶ NIC  : Optimized ($IFACE)"
+echo " ▶ MTU  : 1180–1250 (Client side)"
+echo "========================================"
